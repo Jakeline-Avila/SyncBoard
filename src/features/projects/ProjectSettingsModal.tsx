@@ -31,6 +31,9 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Integrante pendiente de retiro: abre el diálogo de confirmación (T16)
+  const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
 
   const isOwner = user?.id === project.owner_id;
 
@@ -86,9 +89,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       setDescription(project.description || '');
       setConfirmDelete(false);
       setErrorMsg(null);
+      setMemberToRemove(null);
       fetchMembers();
     }
   }, [isOpen, project]);
+
+  // Cerrar el diálogo de confirmación con la tecla Escape
+  useEffect(() => {
+    if (!memberToRemove) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !removingMember) setMemberToRemove(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [memberToRemove, removingMember]);
 
   if (!isOpen) return null;
 
@@ -119,9 +133,12 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
   };
 
-  const handleRemoveMember = async (targetUserId: string, memberName: string) => {
-    if (!window.confirm(`¿Estás seguro de retirar a ${memberName} del proyecto?`)) return;
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    const targetUserId = memberToRemove.userId;
 
+    setRemovingMember(true);
+    setErrorMsg(null);
     try {
       const { error } = await supabase
         .from('project_members')
@@ -134,6 +151,9 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       setMembers(prev => prev.filter(m => m.user_id !== targetUserId));
     } catch (err: any) {
       setErrorMsg(err.message || 'No se pudo retirar al integrante.');
+    } finally {
+      setRemovingMember(false);
+      setMemberToRemove(null);
     }
   };
 
@@ -276,9 +296,10 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                       {isOwner && !isMemberOwner && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveMember(m.user_id, displayName)}
+                          onClick={() => setMemberToRemove({ userId: m.user_id, name: displayName })}
                           className="p-1 text-slate-400 hover:text-red-600 rounded transition"
                           title="Retirar del proyecto"
+                          aria-label={`Retirar a ${displayName} del proyecto`}
                         >
                           <UserMinus className="w-4 h-4" />
                         </button>
@@ -332,6 +353,53 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Diálogo de confirmación para retirar integrante (T16) */}
+      {memberToRemove && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="remove-member-title"
+            aria-describedby="remove-member-description"
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 border border-slate-100"
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-full bg-red-100 text-red-600 flex-shrink-0">
+                <UserMinus className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h4 id="remove-member-title" className="text-sm font-semibold text-slate-900">
+                  ¿Retirar a {memberToRemove.name} del proyecto?
+                </h4>
+                <p id="remove-member-description" className="mt-1 text-xs text-slate-600">
+                  El usuario perderá el acceso inmediato al tablero de tareas y a la actividad del proyecto.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setMemberToRemove(null)}
+                disabled={removingMember}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveMember}
+                disabled={removingMember}
+                className="px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50"
+              >
+                {removingMember ? 'Retirando...' : 'Confirmar retiro'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
