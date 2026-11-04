@@ -57,6 +57,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Atajo Ctrl+Enter (Cmd+Enter en macOS) para guardar desde cualquier campo (T31).
+  // requestSubmit() sigue el mismo camino que el botón de envío: valida los
+  // campos `required` y ejecuta handleSubmit, que evita la recarga de la página.
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+    e.preventDefault();
+    if (loading) return;
+    e.currentTarget.requestSubmit();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -154,7 +164,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
               Título de la Tarea *
@@ -266,6 +276,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               {loading ? 'Guardando...' : taskToEdit ? 'Actualizar Tarea' : 'Crear Tarea'}
             </button>
           </div>
+          <p className="text-right text-[11px] text-slate-500 -mt-2">
+            Atajo: <kbd className="font-sans font-semibold">Ctrl + Enter</kbd>
+          </p>
         </form>
       </div>
     </div>
