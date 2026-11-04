@@ -1,7 +1,13 @@
 import React from 'react';
 import { Task, TaskStatus } from '../../types/database.types';
-import { formatPriority, getPriorityBadgeClass, formatDate } from '../../lib/formatters';
-import { Calendar, User, ChevronLeft, ChevronRight, Edit2, Trash2 } from 'lucide-react';
+import {
+  formatPriority,
+  getPriorityBadgeClass,
+  formatDate,
+  getOverdueDays,
+  formatOverdueLabel,
+} from '../../lib/formatters';
+import { AlertCircle, Calendar, User, ChevronLeft, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -18,7 +24,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onStatusChange,
   assigneeName,
 }) => {
-  const isOverdue = task.due_date && task.status !== 'completed' && new Date(task.due_date) < new Date(new Date().setHours(0, 0, 0, 0));
+  const overdueDays = getOverdueDays(task.due_date, task.status);
+  const isOverdue = overdueDays !== null && overdueDays > 0;
 
   const getPreviousStatus = (status: TaskStatus): TaskStatus | null => {
     if (status === 'completed') return 'in_progress';
@@ -79,6 +86,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {task.description && (
           <p className="text-xs text-slate-500 line-clamp-2 mb-3">
             {task.description}
+          </p>
+        )}
+
+        {/* Indicador de retraso (T03) */}
+        {overdueDays !== null && (
+          <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600">
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
+            <span>{formatOverdueLabel(overdueDays)}</span>
           </p>
         )}
       </div>
